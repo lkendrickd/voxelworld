@@ -4,6 +4,7 @@ from world import World
 from world_objects.voxel_marker import VoxelMarker
 from world_objects.water import Water
 from world_objects.clouds import Clouds
+from world_objects.debris import DebrisSystem
 
 
 class Scene:
@@ -13,11 +14,13 @@ class Scene:
         self.voxel_marker = VoxelMarker(self.world.voxel_handler)
         self.water = Water(app)
         self.clouds = Clouds(app)
+        self.debris = DebrisSystem(app)
 
     def update(self):
         self.world.update()
         self.voxel_marker.update()
         self.clouds.update()
+        self.debris.update()
 
     def render(self):
         # chunks rendering
@@ -31,3 +34,5 @@ class Scene:
 
         # voxel selection
         self.voxel_marker.render()
+        # debris after marker so pieces appear on top when close
+        self.debris.render()

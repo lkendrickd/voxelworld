@@ -84,9 +84,16 @@ class VoxelHandler:
 
     def remove_voxel(self):
         if self.voxel_id and self.chunk is not None:
+            removed_id = int(self.voxel_id)
+            removed_pos = self.voxel_world_pos
             self.chunk.voxels[self.voxel_index] = 0
             self.chunk.build_mesh()
             self.rebuild_adjacent_chunks()
+            # Spawn debris if scene has a debris system
+            try:
+                self.app.scene.debris.spawn_at(removed_pos, removed_id, count=14)
+            except Exception:
+                pass
 
     def set_voxel(self):
         if self.interaction_mode:
