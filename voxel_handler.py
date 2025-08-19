@@ -20,27 +20,52 @@ class VoxelHandler:
 
     def add_voxel(self):
         if self.voxel_id:
+            # ensure we have a valid world position and normal before adding
+            if self.voxel_world_pos is None or self.voxel_normal is None:
+                return
+
+            # compute target position safely (support glm vectors or tuples/lists)
+            if hasattr(self.voxel_world_pos, 'x') and hasattr(self.voxel_normal, 'x'):
+                target = glm.ivec3(
+                    int(self.voxel_world_pos.x + self.voxel_normal.x),
+                    int(self.voxel_world_pos.y + self.voxel_normal.y),
+                    int(self.voxel_world_pos.z + self.voxel_normal.z),
+                )
+            else:
+                target = (
+                    int(self.voxel_world_pos[0] + self.voxel_normal[0]),
+                    int(self.voxel_world_pos[1] + self.voxel_normal[1]),
+                    int(self.voxel_world_pos[2] + self.voxel_normal[2]),
+                )
+
             # check voxel id along normal
-            result = self.get_voxel_id(self.voxel_world_pos + self.voxel_normal)
+            result = self.get_voxel_id(target)
 
             # is the new place empty?
             if not result[0]:
                 _, voxel_index, _, chunk = result
-                chunk.voxels[voxel_index] = self.new_voxel_id
-                chunk.mesh.rebuild()
+                if chunk is not None:
+                    chunk.voxels[voxel_index] = self.new_voxel_id
+                    chunk.build_mesh()
 
-                # was it an empty chunk
-                if chunk.is_empty:
-                    chunk.is_empty = False
+                    # was it an empty chunk
+                    if chunk.is_empty:
+                        chunk.is_empty = False
 
     def rebuild_adj_chunk(self, adj_voxel_pos):
         index = get_chunk_index(adj_voxel_pos)
         if index != -1:
-            self.chunks[index].mesh.rebuild()
+            chunk = self.chunks[index]
+            if chunk is not None:
+                chunk.build_mesh()
 
     def rebuild_adjacent_chunks(self):
-        lx, ly, lz = self.voxel_local_pos
-        wx, wy, wz = self.voxel_world_pos
+        # ensure we have a valid voxel hit before attempting to rebuild neighbors
+        if self.voxel_local_pos is None or self.voxel_world_pos is None:
+            return
+
+        lx, ly, lz = map(int, self.voxel_local_pos)
+        wx, wy, wz = map(int, self.voxel_world_pos)
 
         if lx == 0:
             self.rebuild_adj_chunk((wx - 1, wy, wz))
@@ -58,11 +83,17 @@ class VoxelHandler:
             self.rebuild_adj_chunk((wx, wy, wz + 1))
 
     def remove_voxel(self):
-        if self.voxel_id:
+        if self.voxel_id and self.chunk is not None:
+            removed_id = int(self.voxel_id)
+            removed_pos = self.voxel_world_pos
             self.chunk.voxels[self.voxel_index] = 0
-
-            self.chunk.mesh.rebuild()
+            self.chunk.build_mesh()
             self.rebuild_adjacent_chunks()
+            # Spawn debris if scene has a debris system
+            try:
+                self.app.scene.debris.spawn_at(removed_pos, removed_id, count=14)
+            except Exception:
+                pass
 
     def set_voxel(self):
         if self.interaction_mode:
@@ -135,16 +166,31 @@ class VoxelHandler:
         return False
 
     def get_voxel_id(self, voxel_world_pos):
-        cx, cy, cz = chunk_pos = voxel_world_pos / CHUNK_SIZE
+        # accept glm vectors or (x,y,z) tuples/lists
+        if hasattr(voxel_world_pos, 'x'):
+            wx, wy, wz = int(voxel_world_pos.x), int(voxel_world_pos.y), int(voxel_world_pos.z)
+        else:
+            wx, wy, wz = map(int, voxel_world_pos)
+
+        cx = wx // CHUNK_SIZE
+        cy = wy // CHUNK_SIZE
+        cz = wz // CHUNK_SIZE
 
         if 0 <= cx < WORLD_W and 0 <= cy < WORLD_H and 0 <= cz < WORLD_D:
-            chunk_index = cx + WORLD_W * cz + WORLD_AREA * cy
+            chunk_index = int(cx + WORLD_W * cz + WORLD_AREA * cy)
             chunk = self.chunks[chunk_index]
 
-            lx, ly, lz = voxel_local_pos = voxel_world_pos - chunk_pos * CHUNK_SIZE
+            # local voxel coordinates inside chunk
+            lx = wx - cx * CHUNK_SIZE
+            ly = wy - cy * CHUNK_SIZE
+            lz = wz - cz * CHUNK_SIZE
 
-            voxel_index = lx + CHUNK_SIZE * lz + CHUNK_AREA * ly
-            voxel_id = chunk.voxels[voxel_index]
+            voxel_index = int(lx + CHUNK_SIZE * lz + CHUNK_AREA * ly)
+            # handle missing chunk defensively
+            if chunk is None:
+                return 0, 0, (0, 0, 0), None
 
-            return voxel_id, voxel_index, voxel_local_pos, chunk
-        return 0, 0, 0, 0
+            voxel_id = int(chunk.voxels[voxel_index])
+
+            return voxel_id, voxel_index, (lx, ly, lz), chunk
+        return 0, 0, (0, 0, 0), None

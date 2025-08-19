@@ -1,5 +1,6 @@
 from settings import *
 from meshes.cube_mesh import CubeMesh
+from typing import Any, cast
 
 
 class VoxelMarker:
@@ -13,17 +14,24 @@ class VoxelMarker:
     def update(self):
         if self.handler.voxel_id:
             if self.handler.interaction_mode:
-                self.position = self.handler.voxel_world_pos + self.handler.voxel_normal
+                # ensure vec3 arithmetic
+                self.position = glm.vec3(self.handler.voxel_world_pos) + glm.vec3(self.handler.voxel_normal)
             else:
-                self.position = self.handler.voxel_world_pos
+                self.position = glm.vec3(self.handler.voxel_world_pos)
 
     def set_uniform(self):
-        self.mesh.program['mode_id'] = self.handler.interaction_mode
+        # program expects integers/floats; set directly
+        self.mesh.program['mode_id'] = int(self.handler.interaction_mode)
         self.mesh.program['m_model'].write(self.get_model_matrix())
 
     def get_model_matrix(self):
-        m_model = glm.translate(glm.mat4(), glm.vec3(self.position))
-        return m_model
+        trans = glm.vec3(self.position)
+        translate_fn = getattr(cast(Any, glm), 'translate', None)
+        if callable(translate_fn):
+            return translate_fn(glm.mat4(), trans)
+        m = glm.mat4()
+        m[3] = glm.vec4(float(trans.x), float(trans.y), float(trans.z), 1.0)
+        return m
 
     def render(self):
         if self.handler.voxel_id:

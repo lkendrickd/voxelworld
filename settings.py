@@ -2,6 +2,8 @@ from numba import njit
 import numpy as np
 import glm
 import math
+import subprocess
+import re
 
 # OpenGL settings
 MAJOR_VER, MINOR_VER = 3, 3
@@ -9,7 +11,51 @@ DEPTH_SIZE = 24
 NUM_SAMPLES = 1  # antialiasing
 
 # resolution
-WIN_RES = glm.vec2(1600, 900)
+def _detect_screen_res():
+    """Try several methods to determine the native screen resolution.
+    Order: tkinter, xrandr, pygame, fallback to default.
+    """
+    # tkinter (no X window opened)
+    try:
+        import tkinter as tk
+        root = tk.Tk()
+        root.withdraw()
+        w = root.winfo_screenwidth()
+        h = root.winfo_screenheight()
+        root.destroy()
+        return int(w), int(h)
+    except Exception:
+        pass
+
+    # xrandr
+    try:
+        out = subprocess.check_output(['xrandr', '--query'], stderr=subprocess.DEVNULL).decode()
+        m = re.search(r'current\s+(\d+)\s+x\s+(\d+)', out)
+        if m:
+            return int(m.group(1)), int(m.group(2))
+        m2 = re.search(r'(\d+)x(\d+)\s+\d+\.\d+\*', out)
+        if m2:
+            return int(m2.group(1)), int(m2.group(2))
+    except Exception:
+        pass
+
+    # pygame fallback (may initialize a subsystem briefly)
+    try:
+        import pygame as _pg
+        _pg.init()
+        info = _pg.display.Info()
+        w, h = info.current_w, info.current_h
+        _pg.quit()
+        if w and h:
+            return int(w), int(h)
+    except Exception:
+        pass
+
+    # final fallback
+    return 1600, 900
+
+_w, _h = _detect_screen_res()
+WIN_RES = glm.vec2(_w, _h)
 
 # world generation
 SEED = 16
@@ -44,8 +90,8 @@ FAR = 2000.0
 PITCH_MAX = glm.radians(89)
 
 # player
-PLAYER_SPEED = 0.005
-PLAYER_ROT_SPEED = 0.003
+PLAYER_SPEED = 0.020
+PLAYER_ROT_SPEED = 0.005
 # PLAYER_POS = glm.vec3(CENTER_XZ, WORLD_H * CHUNK_SIZE, CENTER_XZ)
 PLAYER_POS = glm.vec3(CENTER_XZ, CHUNK_SIZE, CENTER_XZ)
 MOUSE_SENSITIVITY = 0.002

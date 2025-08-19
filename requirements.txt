@@ -1,7 +1,7 @@
-pygame==2.5.0
-moderngl==5.8.2
-numba==0.57.1
-PyGLM==2.7.0
-numpy<1.25,>=1.21
-opensimplex[numpy]==0.4.4
+pygame>=2.6.1,<3.0
+moderngl>=5.12.0,<6.0
+numba>=0.61.2,<0.62
+PyGLM>=2.8.2,<3.0
+numpy>=1.24,<2.3
+opensimplex>=0.4.5.1,<0.5
 

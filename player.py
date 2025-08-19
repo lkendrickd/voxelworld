@@ -17,10 +17,12 @@ class Player(Camera):
         # adding and removing voxels with clicks
         if event.type == pg.MOUSEBUTTONDOWN:
             voxel_handler = self.app.scene.world.voxel_handler
-            if event.button == 1:
+            if event.button == 1:  # Left-click to remove
+                voxel_handler.interaction_mode = 0
                 voxel_handler.set_voxel()
-            if event.button == 3:
-                voxel_handler.switch_mode()
+            if event.button == 3:  # Right-click to add
+                voxel_handler.interaction_mode = 1
+                voxel_handler.set_voxel()
 
     def mouse_control(self):
         mouse_dx, mouse_dy = pg.mouse.get_rel()

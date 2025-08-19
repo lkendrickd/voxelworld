@@ -38,3 +38,8 @@ class Textures:
         texture.build_mipmaps()
         texture.filter = (mgl.NEAREST, mgl.NEAREST)
         return texture
+
+    def destroy(self):
+        self.texture_0.release()
+        self.texture_1.release()
+        self.texture_array_0.release()
