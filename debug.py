@@ -42,10 +42,10 @@ class DebugInfo:
         # Quad vertices for a unit square
         vertices = np.array([
             # x, y, u, v
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
-            1.0, 1.0, 1.0, 0.0,
-            1.0, 0.0, 1.0, 1.0,
+            0.0, 1.0, 0.0, 1.0,
+            0.0, 0.0, 0.0, 0.0,
+            1.0, 1.0, 1.0, 1.0,
+            1.0, 0.0, 1.0, 0.0,
         ], dtype='f4')
 
         self.vbo = self.ctx.buffer(vertices)
