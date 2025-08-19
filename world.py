@@ -8,18 +8,13 @@ from typing import List, Optional
 
 class World:
     def __init__(self, app):
-        import time
-        init_start = time.time()
-        
         self.app = app
         self.chunks: List[Optional[Chunk]] = [None for _ in range(WORLD_VOL)]
         self.voxels = np.empty([WORLD_VOL, CHUNK_VOL], dtype='uint8')
-        
+        self.visible_chunks_count = 0
+
         print("Building chunks...")
-        chunk_start = time.time()
         self.build_chunks()
-        chunk_end = time.time()
-        print(f"Chunk generation took {chunk_end - chunk_start:.2f} seconds")
         
         # Progressive mesh building state
         self.chunks_to_mesh = [chunk for chunk in self.chunks if chunk is not None]
@@ -30,7 +25,6 @@ class World:
         
         print(f"Will build {self.total_chunks} meshes progressively...")
         
-        print("Initializing voxel handler...")
         self.voxel_handler = VoxelHandler(self)
 
         # Master culling system (uses player's camera)
@@ -41,8 +35,7 @@ class World:
         self._frame_counter = 0
         self.show_cull_stats = False
         
-        init_end = time.time()
-        print(f"World initialization completed in {init_end - init_start:.2f} seconds")
+        print("World initialization complete.")
         print("Mesh building will continue during gameplay...")
 
     def update(self):
@@ -91,6 +84,7 @@ class World:
             # provide only non-empty chunks to culler
             candidates = [c for c in self.chunks if (c is not None and not c.is_empty)]
             visible_chunks, stats = self.culler.cull_all_chunks(candidates)
+            self.visible_chunks_count = len(visible_chunks)
 
             # render visible chunks
             for chunk in visible_chunks:
@@ -107,6 +101,7 @@ class World:
                     self._frame_counter = 0
         else:
             # Fallback to existing behavior
+            self.visible_chunks_count = len(self.chunks)
             for chunk in self.chunks:
                 if chunk is not None and chunk.mesh is not None:
                     chunk.render()

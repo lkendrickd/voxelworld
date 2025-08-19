@@ -46,8 +46,7 @@ class VoxelHandler:
                 _, voxel_index, _, chunk = result
                 if chunk is not None:
                     chunk.voxels[voxel_index] = self.new_voxel_id
-                    if getattr(chunk, 'mesh', None) is not None:
-                        chunk.mesh.rebuild()
+                    chunk.build_mesh()
 
                     # was it an empty chunk
                     if chunk.is_empty:
@@ -57,8 +56,8 @@ class VoxelHandler:
         index = get_chunk_index(adj_voxel_pos)
         if index != -1:
             chunk = self.chunks[index]
-            if chunk is not None and getattr(chunk, 'mesh', None) is not None:
-                chunk.mesh.rebuild()
+            if chunk is not None:
+                chunk.build_mesh()
 
     def rebuild_adjacent_chunks(self):
         # ensure we have a valid voxel hit before attempting to rebuild neighbors
@@ -86,9 +85,7 @@ class VoxelHandler:
     def remove_voxel(self):
         if self.voxel_id and self.chunk is not None:
             self.chunk.voxels[self.voxel_index] = 0
-
-            if getattr(self.chunk, 'mesh', None) is not None:
-                self.chunk.mesh.rebuild()
+            self.chunk.build_mesh()
             self.rebuild_adjacent_chunks()
 
     def set_voxel(self):

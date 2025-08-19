@@ -54,3 +54,9 @@ class ShaderProgram:
 
         program = self.ctx.program(vertex_shader=vertex_shader, fragment_shader=fragment_shader)
         return program
+
+    def destroy(self):
+        self.chunk.release()
+        self.voxel_marker.release()
+        self.water.release()
+        self.clouds.release()

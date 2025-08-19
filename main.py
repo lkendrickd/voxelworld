@@ -7,71 +7,65 @@ from shader_program import ShaderProgram
 from scene import Scene
 from player import Player
 from textures import Textures
-from typing import Tuple, cast
+from debug import DebugInfo
+from typing import Tuple, cast, Optional
+
+
+def setup_pygame_and_moderngl() -> Optional[mgl.Context]:
+    """Helper function to set up Pygame and ModernGL with defensive checks."""
+    pg.init()
+
+    # Set GL attributes
+    gl_set = getattr(pg.display, 'gl_set_attribute', None)
+    if callable(gl_set):
+        attrs = {
+            'GL_CONTEXT_MAJOR_VERSION': MAJOR_VER,
+            'GL_CONTEXT_MINOR_VERSION': MINOR_VER,
+            'GL_CONTEXT_PROFILE_MASK': getattr(pg, 'GL_CONTEXT_PROFILE_CORE', 0),
+            'GL_DEPTH_SIZE': DEPTH_SIZE,
+            'GL_MULTISAMPLESAMPLES': NUM_SAMPLES
+        }
+        for attr_name, value in attrs.items():
+            pg_attr = getattr(pg, attr_name, None)
+            if pg_attr is not None:
+                gl_set(pg_attr, value)
+
+    # Set screen resolution
+    try:
+        screen_res = (int(WIN_RES.x), int(WIN_RES.y))
+    except (AttributeError, TypeError):
+        screen_res = tuple(WIN_RES)
+
+    # Set display mode flags
+    flags = getattr(pg, 'OPENGL', 0) | getattr(pg, 'DOUBLEBUF', 0)
+    pg.display.set_mode(screen_res, flags=flags)
+
+    # Create ModernGL context
+    try:
+        ctx = mgl.create_context()
+    except Exception as e:
+        print(f"Error creating ModernGL context: {e}")
+        return None
+
+    # Enable flags
+    try:
+        ctx.enable(mgl.DEPTH_TEST | mgl.CULL_FACE | mgl.BLEND)
+    except Exception as e:
+        print(f"Warning: Could not enable some GL flags: {e}")
+
+    # Set GC mode
+    if hasattr(ctx, 'gc_mode'):
+        ctx.gc_mode = 'auto'
+
+    return ctx
 
 
 class VoxelEngine:
     def __init__(self):
-        pg.init()
-
-        # set GL attributes defensively (some pygame builds may not expose all constants)
-        gl_set = getattr(pg.display, 'gl_set_attribute', None)
-        if callable(gl_set):
-            major_attr = getattr(pg, 'GL_CONTEXT_MAJOR_VERSION', None)
-            minor_attr = getattr(pg, 'GL_CONTEXT_MINOR_VERSION', None)
-            profile_mask_attr = getattr(pg, 'GL_CONTEXT_PROFILE_MASK', None)
-            profile_core = getattr(pg, 'GL_CONTEXT_PROFILE_CORE', None)
-            depth_attr = getattr(pg, 'GL_DEPTH_SIZE', None)
-            ms_attr = getattr(pg, 'GL_MULTISAMPLESAMPLES', None)
-
-            if major_attr is not None:
-                gl_set(major_attr, MAJOR_VER)
-            if minor_attr is not None:
-                gl_set(minor_attr, MINOR_VER)
-            if profile_mask_attr is not None and profile_core is not None:
-                gl_set(profile_mask_attr, profile_core)
-            if depth_attr is not None:
-                gl_set(depth_attr, DEPTH_SIZE)
-            if ms_attr is not None:
-                gl_set(ms_attr, NUM_SAMPLES)
-
-        # convert WIN_RES (glm.vec2) to plain tuple for pygame
-        try:
-            screen_res = (int(WIN_RES.x), int(WIN_RES.y))
-        except Exception:
-            screen_res = tuple(WIN_RES)
-
-        flags = 0
-        flags |= getattr(pg, 'OPENGL', 0)
-        flags |= getattr(pg, 'DOUBLEBUF', 0)
-        pg.display.set_mode(screen_res, flags=flags)
-
-        # create moderngl context
-        self.ctx = mgl.create_context()
-
-        # enable GL flags defensively
-        try:
-            enable_fn = getattr(self.ctx, 'enable', None)
-            if callable(enable_fn):
-                flags = 0
-                flags |= getattr(mgl, 'DEPTH_TEST', 0)
-                flags |= getattr(mgl, 'CULL_FACE', 0)
-                flags |= getattr(mgl, 'BLEND', 0)
-                enable_fn(flags=flags)
-        except Exception:
-            # fallback: try calling without keyword
-            try:
-                if callable(getattr(self.ctx, 'enable', None)):
-                    self.ctx.enable(flags)
-            except Exception:
-                pass
-
-        # set gc mode if supported
-        if hasattr(self.ctx, 'gc_mode'):
-            try:
-                self.ctx.gc_mode = 'auto'
-            except Exception:
-                pass
+        self.ctx = setup_pygame_and_moderngl()
+        if not self.ctx:
+            print("Failed to initialize rendering context. Exiting.")
+            sys.exit()
 
         self.clock = pg.time.Clock()
         self.delta_time = 0
@@ -84,78 +78,52 @@ class VoxelEngine:
         self.on_init()
 
     def on_init(self):
-        import time
         print("Starting game initialization...")
         start_time = time.time()
         
-        print("Loading textures...")
-        tex_start = time.time()
         self.textures = Textures(self)
-        tex_end = time.time()
-        print(f"Textures loaded in {tex_end - tex_start:.2f} seconds")
-        
-        print("Initializing player...")
-        player_start = time.time()
         self.player = Player(self)
-        player_end = time.time()
-        print(f"Player initialized in {player_end - player_start:.2f} seconds")
-        
-        print("Compiling shaders...")
-        shader_start = time.time()
         self.shader_program = ShaderProgram(self)
-        shader_end = time.time()
-        print(f"Shaders compiled in {shader_end - shader_start:.2f} seconds")
-        
-        print("Building scene...")
-        scene_start = time.time()
         self.scene = Scene(self)
-        scene_end = time.time()
-        print(f"Scene built in {scene_end - scene_start:.2f} seconds")
+        self.debug_info = DebugInfo(self)
         
         end_time = time.time()
         print(f"Total initialization time: {end_time - start_time:.2f} seconds")
         print("Game ready!")
 
     def update(self):
-        if self.player is not None:
-            self.player.update()
-        if self.shader_program is not None:
-            self.shader_program.update()
-        if self.scene is not None:
-            self.scene.update()
+        self.player.update()
+        self.shader_program.update()
+        self.scene.update()
 
         self.delta_time = self.clock.tick()
         self.time = pg.time.get_ticks() * 0.001
         pg.display.set_caption(f'{self.clock.get_fps() :.0f}')
 
     def render(self):
-        # convert BG_COLOR (glm.vec3) to RGBA tuple for moderngl
+        # Simplified background color handling
         try:
-            clear_color = (float(BG_COLOR.x), float(BG_COLOR.y), float(BG_COLOR.z), 1.0)
-        except Exception:
-            # ensure we have 4 components, append alpha if needed
-            tmp = tuple(BG_COLOR)
-            if len(tmp) == 3:
-                clear_color = (tmp[0], tmp[1], tmp[2], 1.0)
-            else:
-                # fallback: take first four elements and pad if shorter
-                tmp2 = list(tmp)
-                while len(tmp2) < 4:
-                    tmp2.append(1.0)
-                clear_color = tuple(tmp2[:4])
-        # cast to a fixed-size 4-tuple for the type checker
-        clear_color = cast(Tuple[float, float, float, float], clear_color)
-        self.ctx.clear(color=clear_color)
-        if self.scene is not None:
-            self.scene.render()
+            # Assuming BG_COLOR is a glm.vec3 or similar
+            clear_color = (BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, 1.0)
+        except AttributeError:
+            # Fallback for tuples
+            clear_color = (BG_COLOR[0], BG_COLOR[1], BG_COLOR[2], 1.0)
+
+        self.ctx.clear(color=cast(Tuple[float, float, float, float], clear_color))
+        self.scene.render()
+        self.debug_info.render()
         pg.display.flip()
 
     def handle_events(self):
         for event in pg.event.get():
             if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
                 self.is_running = False
-            if self.player is not None:
-                self.player.handle_event(event=event)
+            self.player.handle_event(event=event)
+
+    def destroy(self):
+        self.debug_info.release()
+        self.shader_program.destroy()
+        self.textures.destroy()
 
     def run(self):
         while self.is_running:
@@ -169,6 +137,7 @@ class VoxelEngine:
                 traceback.print_exc()
                 # Try to continue or exit gracefully
                 self.is_running = False
+        self.destroy()
         pg.quit()
         sys.exit()
 
