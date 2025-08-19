@@ -120,7 +120,7 @@ class DebugInfo:
 
         # Model matrix to position and scale the quad
         width, height = self.texture.size
-        # Build model matrix without relying on glm.translate/scale (for compatibility)
+        # Build model matrix without relying on glm.translate/scale
         model = glm.mat4(1.0)
         # scale
         model[0][0] = float(width)
@@ -140,7 +140,6 @@ class DebugInfo:
 
         # Render the quad on top of the scene: disable depth testing and
         # depth writes to ensure the overlay doesn't interact with 3D depth.
-        # Some backends don't support reading blend_func; just set it as needed
         prev_depth_mask = getattr(self.ctx, 'depth_mask', True)
         try:
             self.ctx.blend_func = mgl.SRC_ALPHA, mgl.ONE_MINUS_SRC_ALPHA
@@ -161,7 +160,6 @@ class DebugInfo:
                 self.ctx.depth_mask = prev_depth_mask
             except Exception:
                 pass
-            # Leave blend function as set; do not attempt to read/restore
 
     def release(self):
         self.vbo.release()

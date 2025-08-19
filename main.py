@@ -7,7 +7,7 @@ from shader_program import ShaderProgram
 from scene import Scene
 from player import Player
 from textures import Textures
-from debug import DebugInfo
+from debug_overlay import DebugInfo
 from typing import Tuple, cast, Optional
 
 
@@ -104,11 +104,13 @@ class VoxelEngine:
         # Simplified background color handling
         try:
             # Assuming BG_COLOR is a glm.vec3 or similar
-            clear_color = (BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, 1.0)
+            clear_color = (float(BG_COLOR.x), float(BG_COLOR.y), float(BG_COLOR.z), 1.0)
         except AttributeError:
             # Fallback for tuples
-            clear_color = (BG_COLOR[0], BG_COLOR[1], BG_COLOR[2], 1.0)
+            clear_color = (float(BG_COLOR[0]), float(BG_COLOR[1]), float(BG_COLOR[2]), 1.0)
 
+        # ctx is guaranteed in __init__; add assert to satisfy checkers
+        assert self.ctx is not None
         self.ctx.clear(color=cast(Tuple[float, float, float, float], clear_color))
         self.scene.render()
         self.debug_info.render()
